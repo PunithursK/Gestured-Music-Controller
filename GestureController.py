@@ -56,6 +56,9 @@ print("Gestures: 👍 Play/Pause | ☝️ Next | ✌️ Previous")
 
 gesture_count = 0
 stable_gesture = None
+STABLE_FRAMES=5
+
+is_playing = True
 while True:
     success, img = cap.read()
     if not success:
@@ -78,12 +81,8 @@ while True:
         for hand_landmarks in results.hand_landmarks:
             lm = hand_landmarks
 
-            def is_finger_up(tip, dip):
-                def is_finger_up(tip, dip):
-                    return (lm[dip].y - lm[tip].y) > 0.05
-
             # Thumb (different logic)
-            thumb_up = (lm[4].x - lm[3].x + 0.04)
+            thumb_up = lm[4].x - lm[3].x + 0.04
             index_up = lm[8].y < lm[6].y - 0.03
             middle_up = lm[12].y < lm[10].y - 0.03
             ring_up = lm[16].y < lm[14].y - 0.03
@@ -91,7 +90,7 @@ while True:
 
             # Gesture detection
             # 👍 THUMBS UP (very strict)
-            if thumb_up and not index_up and not middle_up:
+            if thumb_up and not index_up and not middle_up and not ring_up and not pinky_up:
                 # 👇 extra condition to avoid confusion
                 if abs(lm[4].y - lm[8].y) > 0.1:  
                     gesture = "thumbs_up"
@@ -107,10 +106,17 @@ while True:
             else:
                 gesture = None
 
-    current_time = time.time()
-    is_playing = True
+        current_time = time.time()
 
-    if gesture != last_gesture and gesture is not None:
+    if gesture == stable_gesture:
+        gesture_count += 1
+    else:
+        stable_gesture = gesture
+        gesture_count = 1
+
+    if (gesture_count >= STABLE_FRAMES and 
+        gesture is not None and 
+        current_time - last_gesture_time > gesture_cooldown):
 
         if gesture == "thumbs_up":
             if is_playing:
@@ -130,7 +136,7 @@ while True:
             current_song_index = (current_song_index - 1) % len(songs)
             play_song(current_song_index)
 
-        last_gesture = gesture
+        last_gesture_time = current_time
     if gesture is None:
         last_gesture = None
     # Show window
